@@ -8,9 +8,11 @@ class NewCamera:
         self.type = 'libcamera'
         self.streaming = False
         self.stream_output = None
+#	self.preview_mode = None
 
-        self.still_config = self.camera.create_still_configuration(main={"size": (4608, 3456)}, lores={"size": (320, 240)})
-        self.video_config = self.camera.create_video_configuration(main={"size": (1024, 768)})
+        self.still_config = self.camera.create_still_configuration(main={"size": (4656, 3496)}, lores={"size": (320, 240)}, raw = None)
+        self.video_config = self.camera.create_video_configuration(main={"size": (1640,1232)}) # original 1024,768
+
         try:
             self.camera.configure(self.video_config)
         except Exception:
@@ -48,6 +50,30 @@ class NewCamera:
             self.camera.start_recording(MJPEGEncoder(), FileOutput(output))
         except Exception:
             debug('Failed to start stream', exc_info=True)
+
+
+#    def start_stream(self, output):
+#        log('Starting stream.')
+#        self.streaming = True
+#        self.stream_output = output
+#        self.camera.switch_mode(self.video_config)
+
+#        def stream_loop():
+#            while self.streaming:
+#                frame = self.camera.capture_array()
+#                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+#                ret, buffer = cv2.imencode('.jpg', frame)
+#                if ret:
+#                    with output.condition:
+#                        output.frame = buffer.tobytes()
+#                        output.condition.notify_all()
+#                time.sleep(0.03)  # ~30 FPS
+
+#        t = Thread(target=stream_loop, daemon=True)
+#        t.start()
+
+
+
 
     def stop_stream(self):
         # intentionally a no-op for libcamera in this design
@@ -141,7 +167,10 @@ class NewCamera:
     @property
     def resolution(self):
         # best-effort: return still resolution if available
-        return (4608, 3456)
+        try: 
+            return self.camera.sensor_resolution
+        except:
+            return (4608, 3456)
 
     @resolution.setter
     def resolution(self, res):

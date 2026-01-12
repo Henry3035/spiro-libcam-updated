@@ -32,7 +32,7 @@ class Config(object):
         'nightshutter': 10,     # night exposure time
         'nightiso': 400,        # night iso
         'name': 'spiro',        # the name of this spiro instance
-        'debug': False,         # debug logging
+        'debug': True,         # debug logging
         'rotated_camera': True  # rotated camera house
     }
 

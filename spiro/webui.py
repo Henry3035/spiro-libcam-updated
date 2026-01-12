@@ -41,6 +41,25 @@ class Rotator(Thread):
             lock.release()
 
 
+#class StreamingOutput(io.BufferedIOBase):
+#    def __init__(self):
+#        self.frame = None
+#        self.buffer = io.BytesIO()
+#        self.condition = Condition()
+
+#    def write(self, buf):
+#        if buf.startswith(b'\xff\xd8'):
+            # New frame, copy the existing buffer's content and notify all
+#            # clients it's available
+#            self.buffer.truncate()
+#            with self.condition:
+#                self.frame = self.buffer.getvalue()
+#                self.condition.notify_all()
+ #           self.buffer.seek(0)
+#        return self.buffer.write(buf)
+import io
+from threading import Condition
+
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
         self.frame = None
@@ -49,8 +68,6 @@ class StreamingOutput(io.BufferedIOBase):
 
     def write(self, buf):
         if buf.startswith(b'\xff\xd8'):
-            # New frame, copy the existing buffer's content and notify all
-            # clients it's available
             self.buffer.truncate()
             with self.condition:
                 self.frame = self.buffer.getvalue()
@@ -59,17 +76,16 @@ class StreamingOutput(io.BufferedIOBase):
         return self.buffer.write(buf)
 
 
-# class StillOutput(object):
-#     def __init__(self):
-#         self.frame = None
-#         self.buffer = io.BytesIO()
-
-#     def write(self, buf):
-#         if buf.startswith(b'\xff\xd8'):
-#             self.buffer.truncate()
-#             self.frame = self.buffer.getvalue()
-#             self.buffer.seek(0)
-#         return self.buffer.write(buf)
+#class StillOutput(object):
+#    def __init__(self):
+#        self.frame = None
+#        self.buffer = io.BytesIO()
+#    def write(self, buf):
+#        if buf.startswith(b'\xff\xd8'):
+#            self.buffer.truncate()
+#            self.frame = self.buffer.getvalue()
+#            self.buffer.seek(0)
+#        return self.buffer.write(buf)
 
 
 class ZoomObject(object):
@@ -284,7 +300,7 @@ def liveGen():
         else:
             # failed to acquire an image; return nothing instead of waiting
             yield b''
-            
+
 
 @not_while_running
 @app.route('/stream.mjpg')
@@ -701,6 +717,7 @@ def set_hotspot(value):
 
 
 liveoutput = StreamingOutput()
+#liveoutput = StillOutput()
 nightstill = io.BytesIO()
 daystill = io.BytesIO()
 zoomer = ZoomObject()

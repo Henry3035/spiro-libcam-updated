@@ -68,9 +68,10 @@ class Experimenter(threading.Thread):
         else:
             # XXX: clean this up
             self.cam.shutter_speed = 1000000 // self.cfg.get('dayshutter')
+            time.sleep(1.0)
             output = self.cam.camera.capture_array('lores')
             debug("Daytime estimation mean value: " + str(output.mean()))
-        return output.mean() > 10
+        return output.mean() > 60
 
 
     def setWB(self):
@@ -82,7 +83,7 @@ class Experimenter(threading.Thread):
         self.cam.awb_gains = g
 
 
-    def takePicture(self, name, plate_no):
+    def takePicture(self, name, plate_no, output = None):
         filename = ""
         stream = BytesIO()
         prev_daytime = self.daytime
@@ -217,7 +218,7 @@ class Experimenter(threading.Thread):
                         self.hw.halfStep(100, 0.03)
 
                     # wait for the cube to stabilize
-                    time.sleep(0.5)
+                    time.sleep(1.5)
 
                     now = time.strftime("%Y%m%d-%H%M%S", time.localtime())
                     name = os.path.join("plate" + str(i + 1), "plate" + str(i + 1) + "-" + now)
