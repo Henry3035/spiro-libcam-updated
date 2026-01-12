@@ -178,6 +178,25 @@ class Experimenter(threading.Thread):
             debug("Starting experiment.")
             self.cam.still_mode()
             self.running = True
+########################
+            if hasattr(self, 'custom_settings'):
+#                if 'initial_focus' in self.custom_settings:
+#                    try:
+#                        focus_val = self.custom_settings['initial_focus']
+#                        self.cam.focus(0)
+#                        time.sleep(0.5)
+#                        self.cam.focus(focus_val)
+#                        self.cam.focus(focus_val)
+#                    except Exception as e: 
+#                        debug(f"Failed to restore focus: {e}")
+                if 'initial_zoom' in self.custom_settings:
+                    try:
+                        zoom_val = self.custom_settings['initial_zoom']
+                        self.cam.zoom = zoom_val
+                        debug(f"Restored zoom/pan to: {zoom_val}")
+                    except Exception as e: 
+                        debug(f"Failed to restore zoom: {e}")
+#############################
             self.status = "Initiating"
             self.starttime = time.time()
             self.endtime = time.time() + 60 * 60 * 24 * self.duration

@@ -401,7 +401,11 @@ def experiment():
                 if request.form.get('directory'): experimenter.dir = os.path.expanduser(os.path.join('~', request.form['directory'].replace('/', '-')))
                 else: experimenter.dir = os.path.expanduser('~')
                 setLive('off')
-                zoomer.set(roi=1.0)
+#                zoomer.set(roi=1.0)
+                current_zoom_tuple = ( zoomer.y - zoomer.roi/2.0, zoomer.x - zoomer.roi/2.0, zoomer.roi, zoomer.roi)
+#                current_focus = cfg.get("focus")
+#                experimenter.custom_settings = {'initial_zoom': current_zoom_tuple, 'initial_focus':current_focus}
+                experimenter.custom_settings = {'initial_zoom': current_zoom_tuple}
                 log("Starting new experiment.")
                 experimenter.next_status = 'run'
                 experimenter.status_change.set()
