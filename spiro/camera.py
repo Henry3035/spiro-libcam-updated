@@ -3,6 +3,12 @@ import io
 import threading
 import numpy as np
 from PIL import Image
+# optional, faster encoder
+try:
+    import cv2
+    _have_cv2 = True
+except Exception:
+    _have_cv2 = False
 from spiro.logger import log, debug
 
 class NewCamera:
@@ -83,20 +89,36 @@ class NewCamera:
                     elif self._rotation % 360 == 270:
                         frame = np.rot90(frame, k=1)
 
-                    # convert to JPEG (ensure RGB mode for JPEG)
-                    im = Image.fromarray(frame)
-                    if im.mode != 'RGB':
-                        im = im.convert('RGB')
-                    buf = io.BytesIO()
-                    im.save(buf, format='JPEG')
-                    jpg = buf.getvalue()
-                    with output.condition:
-                        output.frame = jpg
-                        output.condition.notify_all()
-                except Exception:
-                    import traceback
-                    debug('Frame stream loop error')
-                    debug(traceback.format_exc())
+                    # convert to JPEG (use OpenCV encoder if available for speed)
+                    if _have_cv2:
+                        try:
+                            # OpenCV expects BGR
+                            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                            ret, buf = cv2.imencode('.jpg', frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                            if ret:
+                                jpg = buf.tobytes()
+                                with output.condition:
+                                    output.frame = jpg
+                                    output.condition.notify_all()
+                                continue
+                        except Exception:
+                            # fall back to PIL if cv2 fails
+                            debug('cv2 encoding failed, falling back to PIL')
+                    # PIL fallback
+                    try:
+                        im = Image.fromarray(frame)
+                        if im.mode != 'RGB':
+                            im = im.convert('RGB')
+                        buf = io.BytesIO()
+                        im.save(buf, format='JPEG', quality=85)
+                        jpg = buf.getvalue()
+                        with output.condition:
+                            output.frame = jpg
+                            output.condition.notify_all()
+                    except Exception:
+                        import traceback
+                        debug('Frame stream loop error')
+                        debug(traceback.format_exc())
                 time.sleep(0.03)
         self._stream_thread = threading.Thread(target=stream_loop, daemon=True)
         self._stream_thread.start()
