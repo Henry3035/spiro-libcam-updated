@@ -782,21 +782,37 @@ def start(cam, myhw):
         camera.meter_mode = 'spot'
         if cfg.get('rotated_camera'):
             camera.rotation = 90
-        # restore persisted zoom/pan (if any) without re-writing the config
+        setLive('on')
+
+        # restore persisted zoom/pan after stream starts (retry to ensure camera accepts it)
         saved_zoom = cfg.get('zoom')
         if saved_zoom:
             try:
+                # normalize to (x, y, roi)
                 if isinstance(saved_zoom, dict):
-                    zoomer.set(x=saved_zoom.get('x', 0.5), y=saved_zoom.get('y', 0.5), roi=saved_zoom.get('roi', 1), persist=False)
+                    tx = saved_zoom.get('x', 0.5); ty = saved_zoom.get('y', 0.5); troi = saved_zoom.get('roi', 1)
                 elif isinstance(saved_zoom, (list, tuple)) and len(saved_zoom) == 4:
                     top, left, h, w = saved_zoom
-                    roi = h
-                    x = left + roi/2.0
-                    y = top + roi/2.0
-                    zoomer.set(x=x, y=y, roi=roi, persist=False)
+                    troi = h
+                    tx = left + troi/2.0
+                    ty = top + troi/2.0
+                else:
+                    tx = ty = 0.5; troi = 1
+
+                for attempt in range(1, 6):
+                    zoomer.set(x=tx, y=ty, roi=troi, persist=False)
+                    time.sleep(1)
+                    try:
+                        cz = getattr(camera, 'zoom', None)
+                        if cz and abs(cz[2] - troi) < 0.01:
+                            log(f"Zoom applied (attempt {attempt}).")
+                            break
+                    except Exception:
+                        pass
+                else:
+                    log("Failed to apply saved zoom after retries.")
             except Exception as e:
                 debug(f"Failed to restore saved zoom: {e}")
-        setLive('on')
 
         # restore persisted focus (retry while camera finishes initializing)
         saved_focus = cfg.get('focus')
