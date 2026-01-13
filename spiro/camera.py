@@ -81,6 +81,7 @@ class NewCamera:
             while not self._stream_thread_stop.is_set():
                 try:
                     frame = self.camera.capture_array()
+
                     # rotate frame clockwise by _rotation degrees (only multiples of 90 supported)
                     if self._rotation % 360 == 90:
                         frame = np.rot90(frame, k=-1)
@@ -103,7 +104,8 @@ class NewCamera:
                                 continue
                         except Exception:
                             # fall back to PIL if cv2 fails
-                            debug('cv2 encoding failed, falling back to PIL')
+                            debug('cv2 encoding failed, falling back to PIL', exc_info=True)
+
                     # PIL fallback
                     try:
                         im = Image.fromarray(frame)
@@ -119,7 +121,13 @@ class NewCamera:
                         import traceback
                         debug('Frame stream loop error')
                         debug(traceback.format_exc())
+                except Exception:
+                    import traceback
+                    debug('Outer frame stream loop error')
+                    debug(traceback.format_exc())
+
                 time.sleep(0.03)
+
         self._stream_thread = threading.Thread(target=stream_loop, daemon=True)
         self._stream_thread.start()
 
