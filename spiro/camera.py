@@ -1,5 +1,6 @@
 import time
 from spiro.logger import log, debug
+from spiro.config import Config
 
 class NewCamera:
     def __init__(self):

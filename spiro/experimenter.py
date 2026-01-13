@@ -136,6 +136,15 @@ class Experimenter(threading.Thread):
             raw_res = tuple(self.cam.resolution)
         stream.seek(0)
         im = Image.frombytes('RGB', raw_res, stream.read()).crop(box=(0,0)+self.cam.resolution)
+
+        # if configured, rotate saved stills clockwise 90 degrees (do not affect camera config)
+        try:
+            if self.cfg.get('rotated_camera'):
+                im = im.transpose(Image.ROTATE_270)  # clockwise 90°
+                debug('Rotated still image 90° clockwise before saving.')
+        except Exception as e:
+            debug(f'Failed to rotate still image: {e}')
+
         im.save(filename)
 
         # make thumbnail previews for experiment overview page
