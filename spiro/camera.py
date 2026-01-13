@@ -83,8 +83,10 @@ class NewCamera:
                     elif self._rotation % 360 == 270:
                         frame = np.rot90(frame, k=1)
 
-                    # convert to JPEG
+                    # convert to JPEG (ensure RGB mode for JPEG)
                     im = Image.fromarray(frame)
+                    if im.mode != 'RGB':
+                        im = im.convert('RGB')
                     buf = io.BytesIO()
                     im.save(buf, format='JPEG')
                     jpg = buf.getvalue()
@@ -92,7 +94,9 @@ class NewCamera:
                         output.frame = jpg
                         output.condition.notify_all()
                 except Exception:
-                    debug('Frame stream loop error', exc_info=True)
+                    import traceback
+                    debug('Frame stream loop error')
+                    debug(traceback.format_exc())
                 time.sleep(0.03)
         self._stream_thread = threading.Thread(target=stream_loop, daemon=True)
         self._stream_thread.start()
