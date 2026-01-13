@@ -114,6 +114,12 @@ class ZoomObject(object):
         self.y = max(min(self.y, limits[1]), limits[0])
         camera.zoom = (self.y - self.roi/2.0, self.x - self.roi/2.0, self.roi, self.roi)
 
+        # log current values
+        try:
+            log(f"Zoom set: x={self.x:.4f}, y={self.y:.4f}, roi={self.roi:.4f}, persisted={persist}")
+        except Exception:
+            pass
+
         # persist configuration if requested
         try:
             if persist:
@@ -229,17 +235,27 @@ def newpass():
 @not_while_running
 @app.route('/zoom/<int:value>')
 def zoom(value):
-    zoomer.set(roi=float(value / 100))
+    roi_val = float(value / 100)
+    zoomer.set(roi=roi_val)
+    try:
+        log(f"Zoom request: roi={roi_val:.4f} -> zoom now x={zoomer.x:.4f}, y={zoomer.y:.4f}, roi={zoomer.roi:.4f}")
+    except Exception:
+        pass
     return redirect(url_for('index'))
 
 
 @not_while_running
 @app.route('/pan/<dir>/<value>')
 def pan(dir, value):
+    delta = float(value)
     if dir == 'x':
-        zoomer.set(x = zoomer.x + float(value))
+        zoomer.set(x = zoomer.x + delta)
     elif dir == 'y':
-        zoomer.set(y = zoomer.y + float(value))
+        zoomer.set(y = zoomer.y + delta)
+    try:
+        log(f"Pan request: dir={dir}, delta={delta:.4f} -> zoom now x={zoomer.x:.4f}, y={zoomer.y:.4f}, roi={zoomer.roi:.4f}")
+    except Exception:
+        pass
     return redirect(url_for('index'))
 
 
