@@ -94,20 +94,33 @@ class ZoomObject(object):
         self.x = 0.5
         self.y = 0.5
     
-    def set(self, x=None, y=None, roi=None):
-        '''convenience function for setting zoom/pan'''
+    def set(self, x=None, y=None, roi=None, persist=True):
+        '''convenience function for setting zoom/pan
+
+        persist: if True (default), save the new zoom/pan to persistent config;
+                 if False, apply only for the current session (e.g., temporary live reset)
+        '''
         if x is not None: self.x = x
         if y is not None: self.y = y
         if roi is not None: self.roi = roi
-        self.apply()
+        self.apply(persist=persist)
 
-    def apply(self):
+    def apply(self, persist=True):
         '''checks and applies zoom/pan values on camera object'''
+        # constrain roi and pan to valid ranges
         self.roi = max(min(self.roi, 1.0), 0.2)
         limits = (self.roi / 2.0, 1 - self.roi / 2.0)
         self.x = max(min(self.x, limits[1]), limits[0])
         self.y = max(min(self.y, limits[1]), limits[0])
         camera.zoom = (self.y - self.roi/2.0, self.x - self.roi/2.0, self.roi, self.roi)
+
+        # persist configuration if requested
+        try:
+            if persist:
+                cfg.set('zoom', {'x': self.x, 'y': self.y, 'roi': self.roi})
+        except Exception:
+            # avoid crashing if cfg isn't available for some reason
+            debug('Warning: Unable to persist zoom settings to config.')
 
 
 def public_route(decorated_function):
@@ -234,7 +247,8 @@ def pan(dir, value):
 @app.route('/live/<value>')
 def switch_live(value):
     if setLive(value):
-        zoomer.set(0.5, 0.5, 1)
+        # reset zoom for viewing but do NOT persist this temporary change
+        zoomer.set(0.5, 0.5, 1, persist=False)
     if value == 'on':
         # camera.shutter_speed = 0
         # camera.exposure_mode = "auto"
@@ -751,6 +765,20 @@ def start(cam, myhw):
         camera.meter_mode = 'spot'
         if cfg.get('rotated_camera'):
             camera.rotation = 90
+        # restore persisted zoom/pan (if any) without re-writing the config
+        saved_zoom = cfg.get('zoom')
+        if saved_zoom:
+            try:
+                if isinstance(saved_zoom, dict):
+                    zoomer.set(x=saved_zoom.get('x', 0.5), y=saved_zoom.get('y', 0.5), roi=saved_zoom.get('roi', 1), persist=False)
+                elif isinstance(saved_zoom, (list, tuple)) and len(saved_zoom) == 4:
+                    top, left, h, w = saved_zoom
+                    roi = h
+                    x = left + roi/2.0
+                    y = top + roi/2.0
+                    zoomer.set(x=x, y=y, roi=roi, persist=False)
+            except Exception as e:
+                debug(f"Failed to restore saved zoom: {e}")
         setLive('on')
         #app.run(host="0.0.0.0", port=8080, debug=False)
         # use a tcp timeout of 20 seconds to improve hanging behavior in live view
