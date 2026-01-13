@@ -796,6 +796,19 @@ def start(cam, myhw):
             except Exception as e:
                 debug(f"Failed to restore saved zoom: {e}")
         setLive('on')
+
+        # restore persisted focus (retry while camera finishes initializing)
+        saved_focus = cfg.get('focus')
+        if saved_focus is not None:
+            log(f"Restoring saved focus: {saved_focus}")
+            for attempt in range(1, 6):
+                hw.focusCam(saved_focus)
+                time.sleep(1)
+                if getattr(camera, 'type', None) != 'libcamera' or getattr(camera, 'lens_limits', None):
+                    log(f"Focus applied (attempt {attempt}).")
+                    break
+            else:
+                log("Failed to apply saved focus after retries.")
         #app.run(host="0.0.0.0", port=8080, debug=False)
         # use a tcp timeout of 20 seconds to improve hanging behavior in live view
         serve(app, listen="*:8080", threads=8, channel_timeout=20)
