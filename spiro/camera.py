@@ -1,14 +1,4 @@
 import time
-import io
-import threading
-import numpy as np
-from PIL import Image
-# optional, faster encoder
-try:
-    import cv2
-    _have_cv2 = True
-except Exception:
-    _have_cv2 = False
 from spiro.logger import log, debug
 
 class NewCamera:
@@ -18,10 +8,6 @@ class NewCamera:
         self.type = 'libcamera'
         self.streaming = False
         self.stream_output = None
-        self._rotation = 0  # rotation in degrees, clockwise
-        self._stream_thread = None
-        self._stream_thread_stop = threading.Event()
-
 #	self.preview_mode = None
 
         self.still_config = self.camera.create_still_configuration(main={"size": (4656, 3496)}, lores={"size": (320, 240)}, raw = None)
@@ -59,77 +45,11 @@ class NewCamera:
         log('Starting stream.')
         try:
             self.stream_output = output
-            self._stream_thread_stop.clear()
             self.streaming = True
             self.camera.switch_mode(self.video_config)
-            # if no rotation requested, use efficient MJPEGEncoder path
-            if self._rotation % 360 == 0:
-                try:
-                    self.camera.start_recording(MJPEGEncoder(), FileOutput(output))
-                except Exception:
-                    debug('Failed to start MJPEG stream, falling back to frame loop', exc_info=True)
-                    self._start_frame_stream(output)
-            else:
-                # rotation requested, use frame loop stream that rotates frames
-                self._start_frame_stream(output)
+            self.camera.start_recording(MJPEGEncoder(), FileOutput(output))
         except Exception:
             debug('Failed to start stream', exc_info=True)
-
-    def _start_frame_stream(self, output):
-        # run a thread capturing frames, rotating if necessary, and writing MJPEG frames into output
-        def stream_loop():
-            while not self._stream_thread_stop.is_set():
-                try:
-                    frame = self.camera.capture_array()
-
-                    # rotate frame clockwise by _rotation degrees (only multiples of 90 supported)
-                    if self._rotation % 360 == 90:
-                        frame = np.rot90(frame, k=-1)
-                    elif self._rotation % 360 == 180:
-                        frame = np.rot90(frame, k=2)
-                    elif self._rotation % 360 == 270:
-                        frame = np.rot90(frame, k=1)
-
-                    # convert to JPEG (use OpenCV encoder if available for speed)
-                    if _have_cv2:
-                        try:
-                            # OpenCV expects BGR
-                            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                            ret, buf = cv2.imencode('.jpg', frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-                            if ret:
-                                jpg = buf.tobytes()
-                                with output.condition:
-                                    output.frame = jpg
-                                    output.condition.notify_all()
-                                continue
-                        except Exception:
-                            # fall back to PIL if cv2 fails
-                            debug('cv2 encoding failed, falling back to PIL', exc_info=True)
-
-                    # PIL fallback
-                    try:
-                        im = Image.fromarray(frame)
-                        if im.mode != 'RGB':
-                            im = im.convert('RGB')
-                        buf = io.BytesIO()
-                        im.save(buf, format='JPEG', quality=85)
-                        jpg = buf.getvalue()
-                        with output.condition:
-                            output.frame = jpg
-                            output.condition.notify_all()
-                    except Exception:
-                        import traceback
-                        debug('Frame stream loop error')
-                        debug(traceback.format_exc())
-                except Exception:
-                    import traceback
-                    debug('Outer frame stream loop error')
-                    debug(traceback.format_exc())
-
-                time.sleep(0.03)
-
-        self._stream_thread = threading.Thread(target=stream_loop, daemon=True)
-        self._stream_thread.start()
 
 
 #    def start_stream(self, output):
@@ -156,21 +76,8 @@ class NewCamera:
 
 
     def stop_stream(self):
-        # stop either recording or frame-loop thread
-        try:
-            # stop frame-loop thread if running
-            if self._stream_thread and self._stream_thread.is_alive():
-                self._stream_thread_stop.set()
-                self._stream_thread.join(timeout=2)
-                self._stream_thread = None
-            # try to stop recording if picamera2 is using start_recording
-            try:
-                self.camera.stop_recording()
-            except Exception:
-                pass
-        except Exception:
-            debug('Error stopping stream', exc_info=True)
-
+        # intentionally a no-op for libcamera in this design
+        pass
 
     @property
     def zoom(self):
@@ -204,22 +111,6 @@ class NewCamera:
         try:
             self.camera.switch_mode(self.still_config)
             self.camera.capture_file(obj, format=format)
-            # if rotation requested, rotate the saved image (clockwise)
-            if self._rotation % 360 != 0:
-                try:
-                    obj.seek(0)
-                    im = Image.open(obj)
-                    if self._rotation % 360 == 90:
-                        im = im.transpose(Image.ROTATE_270)
-                    elif self._rotation % 360 == 180:
-                        im = im.transpose(Image.ROTATE_180)
-                    elif self._rotation % 360 == 270:
-                        im = im.transpose(Image.ROTATE_90)
-                    obj.truncate(0); obj.seek(0)
-                    im.save(obj, format=format.upper())
-                    obj.seek(0)
-                except Exception:
-                    debug('Failed to rotate still image', exc_info=True)
             log('Ok.')
         except Exception:
             debug('Capture failed', exc_info=True)
@@ -308,16 +199,6 @@ class NewCamera:
         except Exception:
             debug('Failed to set focus', exc_info=True)
 
-    @property
-    def rotation(self):
-        return self._rotation
-
-    @rotation.setter
-    def rotation(self, degrees):
-        try:
-            self._rotation = int(degrees) % 360
-        except Exception:
-            debug('Invalid rotation value', exc_info=True)
 
 from picamera2 import Picamera2
 from picamera2.outputs import FileOutput
