@@ -172,7 +172,8 @@ def index():
         return redirect(url_for('experiment'))
     if restarting:
         return render_template('restarting.html', refresh='60; url=/', message="Rebooting system...")
-    return render_template('index.html', live=livestream, focus=cfg.get('focus'), led=hw.led, name=cfg.get('name'))
+    # pass saved zoom settings to template so UI reflects persisted state
+    return render_template('index.html', live=livestream, focus=cfg.get('focus'), led=hw.led, name=cfg.get('name'), zoom=cfg.get('zoom'))
 
 
 @app.route('/empty')

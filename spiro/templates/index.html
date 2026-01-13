@@ -64,7 +64,7 @@
 </div>
 <div class="tool zoom">
 <label for="zoom">Zoom</label>
-<input name="zoom" type="range" id="zoom" class="zoom" min="20" max="100" value="100" oninput="bgGet('/zoom/' + this.value);">
+<input name="zoom" type="range" id="zoom" class="zoom" min="20" max="100" value="{{ (zoom.roi * 100) | int if zoom else 100 }}" oninput="bgGet('/zoom/' + this.value);">
 </div>
 <div class="tool focus">
 <form class="pure-form">
