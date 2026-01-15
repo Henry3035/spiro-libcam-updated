@@ -250,9 +250,9 @@ def zoom(value):
 def pan(dir, value):
     delta = float(value)
     if dir == 'x':
-        zoomer.set(x = zoomer.x + delta)
-    elif dir == 'y':
         zoomer.set(y = zoomer.y + delta)
+    elif dir == 'y':
+        zoomer.set(x = zoomer.x + delta)
     try:
         log(f"Pan request: dir={dir}, delta={delta:.4f} -> zoom now x={zoomer.x:.4f}, y={zoomer.y:.4f}, roi={zoomer.roi:.4f}")
     except Exception:
